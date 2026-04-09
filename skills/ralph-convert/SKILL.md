@@ -23,6 +23,12 @@ Transform PRD documents into structured JSON that ralph-agent can execute iterat
       "title": "Story title",
       "description": "As a [user], I want [action] so that [benefit].",
       "priority": 1,
+      "type": "backend",
+      "team": {
+        "design": [],
+        "implement": ["Senior Developer"],
+        "review": ["Code Reviewer"]
+      },
       "acceptance_criteria": [
         "Specific criterion 1",
         "Specific criterion 2",
@@ -57,7 +63,28 @@ Transform PRD documents into structured JSON that ralph-agent can execute iterat
 - If it touches more than 2-3 files, consider splitting
 - Each story = one logical unit of work
 
-### 2. Dependency Ordering
+### 2. Story Type Classification & Team Assignment
+
+Auto-classify each story and assign the appropriate agent team. If the PRD already has `[type]` tags, use those. Otherwise, infer from keywords and scope.
+
+**Classification rules:**
+
+| Type | Signals | Team |
+|------|---------|------|
+| `backend` | DB, migration, API, endpoint, service, model, controller, queue, cron | design: [] / implement: ["Senior Developer"] / review: ["Code Reviewer"] |
+| `frontend` | component, page, UI, form, modal, layout, styling, animation, UX | design: ["UX Researcher", "UI Designer"] / implement: ["Senior Developer"] / review: ["Code Reviewer"] |
+| `fullstack` | touches both API + UI, form submission with API, CRUD with views | design: ["UX Researcher"] / implement: ["Backend Architect", "Frontend Developer"] / review: ["Code Reviewer"] |
+| `infra` | CI/CD, Docker, deploy, config, env, pipeline, monitoring | design: [] / implement: ["DevOps Automator", "Senior Developer"] / review: ["Code Reviewer"] |
+| `data` | integration, external API, webhook, import/export, pipeline, ETL | design: [] / implement: ["Backend Architect"] / review: ["API Tester", "Code Reviewer"] |
+
+**Phase rules:**
+- `design` phase is **only** for `frontend` and `fullstack` types. Skip for backend/infra/data.
+- `implement` phase is **always** present.
+- `review` phase is **always** present.
+
+**Team can be customized:** The user may override team assignments in the PRD. Respect any explicit overrides.
+
+### 3. Dependency Ordering
 
 Stories execute sequentially by priority number. Earlier stories CANNOT depend on later ones.
 
@@ -122,7 +149,7 @@ Acceptance Criteria:
 - Can filter by status
 ```
 
-**Output (split into right-sized stories):**
+**Output (split into right-sized stories with team assignments):**
 ```json
 {
   "name": "Task Status Feature",
@@ -133,6 +160,12 @@ Acceptance Criteria:
       "title": "Add status column to tasks table",
       "description": "As a developer, I want a status column in the database so that tasks can track their state.",
       "priority": 1,
+      "type": "backend",
+      "team": {
+        "design": [],
+        "implement": ["Senior Developer"],
+        "review": ["Code Reviewer"]
+      },
       "acceptance_criteria": [
         "Add `status` column to tasks table",
         "Default value is 'pending'",
@@ -148,6 +181,12 @@ Acceptance Criteria:
       "title": "Return status in task API",
       "description": "As a frontend developer, I want the API to include status so I can display it.",
       "priority": 2,
+      "type": "backend",
+      "team": {
+        "design": [],
+        "implement": ["Senior Developer"],
+        "review": ["Code Reviewer"]
+      },
       "acceptance_criteria": [
         "GET /tasks returns status field",
         "GET /tasks/:id returns status field",
@@ -162,6 +201,12 @@ Acceptance Criteria:
       "title": "Create TaskStatusBadge component",
       "description": "As a user, I want to see task status visually so I can quickly identify state.",
       "priority": 3,
+      "type": "frontend",
+      "team": {
+        "design": ["UX Researcher", "UI Designer"],
+        "implement": ["Senior Developer"],
+        "review": ["Code Reviewer"]
+      },
       "acceptance_criteria": [
         "Component shows colored badge for each status",
         "pending: gray, in_progress: blue, completed: green",
@@ -176,6 +221,12 @@ Acceptance Criteria:
       "title": "Display status in task list",
       "description": "As a user, I want to see status badges in the task list.",
       "priority": 4,
+      "type": "frontend",
+      "team": {
+        "design": ["UX Researcher", "UI Designer"],
+        "implement": ["Senior Developer"],
+        "review": ["Code Reviewer"]
+      },
       "acceptance_criteria": [
         "TaskStatusBadge displays next to each task",
         "Status updates when task changes",
@@ -190,6 +241,12 @@ Acceptance Criteria:
       "title": "Add status filter to task list",
       "description": "As a user, I want to filter tasks by status so I can focus on specific items.",
       "priority": 5,
+      "type": "frontend",
+      "team": {
+        "design": ["UX Researcher", "UI Designer"],
+        "implement": ["Senior Developer"],
+        "review": ["Code Reviewer"]
+      },
       "acceptance_criteria": [
         "Filter dropdown with status options",
         "Selecting filter shows only matching tasks",
@@ -220,3 +277,6 @@ Before saving prd.json:
 - [ ] UI stories have "Verify in browser"
 - [ ] No vague acceptance criteria
 - [ ] Branch name follows convention
+- [ ] Every story has a valid `type` (backend/frontend/fullstack/infra/data)
+- [ ] Every story has a `team` object with design/implement/review arrays
+- [ ] Frontend/fullstack stories have design agents; backend/infra/data do not
