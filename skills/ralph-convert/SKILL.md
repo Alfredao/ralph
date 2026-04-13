@@ -29,6 +29,11 @@ Transform PRD documents into structured JSON that ralph-agent can execute iterat
         "implement": ["Senior Developer"],
         "review": ["Code Reviewer"]
       },
+      "models": {
+        "design": "opus",
+        "implement": "sonnet",
+        "review": "opus"
+      },
       "acceptance_criteria": [
         "Specific criterion 1",
         "Specific criterion 2",
@@ -83,6 +88,18 @@ Auto-classify each story and assign the appropriate agent team. If the PRD alrea
 - `review` phase is **always** present.
 
 **Team can be customized:** The user may override team assignments in the PRD. Respect any explicit overrides.
+
+### 2b. Model Assignment
+
+Every story gets a `models` object specifying which Claude model to use per phase:
+
+| Phase | Default Model | Rationale |
+|-------|--------------|-----------|
+| design | `opus` | Reasoning-heavy: UX analysis, architecture decisions |
+| implement | `sonnet` | Code generation: fast and cost-effective |
+| review | `opus` | Reasoning-heavy: evaluating correctness against criteria |
+
+Apply defaults automatically. Users can override per-story by changing values to `"opus"`, `"sonnet"`, or `"haiku"`.
 
 ### 3. Dependency Ordering
 
@@ -166,6 +183,11 @@ Acceptance Criteria:
         "implement": ["Senior Developer"],
         "review": ["Code Reviewer"]
       },
+      "models": {
+        "design": "opus",
+        "implement": "sonnet",
+        "review": "opus"
+      },
       "acceptance_criteria": [
         "Add `status` column to tasks table",
         "Default value is 'pending'",
@@ -187,6 +209,11 @@ Acceptance Criteria:
         "implement": ["Senior Developer"],
         "review": ["Code Reviewer"]
       },
+      "models": {
+        "design": "opus",
+        "implement": "sonnet",
+        "review": "opus"
+      },
       "acceptance_criteria": [
         "GET /tasks returns status field",
         "GET /tasks/:id returns status field",
@@ -206,6 +233,11 @@ Acceptance Criteria:
         "design": ["UX Researcher", "UI Designer"],
         "implement": ["Senior Developer"],
         "review": ["Code Reviewer"]
+      },
+      "models": {
+        "design": "opus",
+        "implement": "sonnet",
+        "review": "opus"
       },
       "acceptance_criteria": [
         "Component shows colored badge for each status",
@@ -227,6 +259,11 @@ Acceptance Criteria:
         "implement": ["Senior Developer"],
         "review": ["Code Reviewer"]
       },
+      "models": {
+        "design": "opus",
+        "implement": "sonnet",
+        "review": "opus"
+      },
       "acceptance_criteria": [
         "TaskStatusBadge displays next to each task",
         "Status updates when task changes",
@@ -246,6 +283,11 @@ Acceptance Criteria:
         "design": ["UX Researcher", "UI Designer"],
         "implement": ["Senior Developer"],
         "review": ["Code Reviewer"]
+      },
+      "models": {
+        "design": "opus",
+        "implement": "sonnet",
+        "review": "opus"
       },
       "acceptance_criteria": [
         "Filter dropdown with status options",
@@ -280,3 +322,4 @@ Before saving prd.json:
 - [ ] Every story has a valid `type` (backend/frontend/fullstack/infra/data)
 - [ ] Every story has a `team` object with design/implement/review arrays
 - [ ] Frontend/fullstack stories have design agents; backend/infra/data do not
+- [ ] Every story has a `models` object with `design`, `implement`, and `review` keys

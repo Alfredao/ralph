@@ -100,6 +100,25 @@ archive_if_needed() {
     echo "$current_branch" > .ralph_branch
 }
 
+# Get the Claude model ID for the next story's implement phase
+# Reads models.implement from prd.json, falls back to sonnet
+get_next_story_model_id() {
+    local short_name
+    short_name=$(jq -r '
+      .stories
+      | map(select(.passes == false))
+      | sort_by(.priority)
+      | .[0].models.implement
+      // "sonnet"
+    ' "$PRD_FILE" 2>/dev/null)
+
+    case "$short_name" in
+        opus)   echo "claude-opus-4-6" ;;
+        haiku)  echo "claude-haiku-4-5-20251001" ;;
+        *)      echo "claude-sonnet-4-6" ;;
+    esac
+}
+
 # Check if all stories are complete
 all_stories_complete() {
     local incomplete
@@ -204,9 +223,12 @@ main() {
         log_info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo ""
 
-        # Spawn fresh Claude session
+        # Spawn fresh Claude session with the model from prd.json
         local output
-        output=$(generate_worker_prompt | claude --print 2>&1) || true
+        local model_id
+        model_id=$(get_next_story_model_id)
+        log_info "Model: $model_id"
+        output=$(generate_worker_prompt | claude --print --model "$model_id" 2>&1) || true
 
         # Check for completion signal
         if echo "$output" | grep -q "$COMPLETION_SIGNAL"; then

@@ -39,11 +39,18 @@ Find your assigned story in `prd.json` by ID. Note:
 - Title, description, acceptance criteria
 - **type** field (backend/frontend/fullstack/infra/data)
 - **team** object with design/implement/review arrays
+- **models** object with model names per phase (`"opus"`, `"sonnet"`, or `"haiku"`)
 
 If no `type` or `team` fields exist (old format), default to:
 ```json
-{ "type": "backend", "team": { "design": [], "implement": ["Senior Developer"], "review": ["Code Reviewer"] } }
+{
+  "type": "backend",
+  "team": { "design": [], "implement": ["Senior Developer"], "review": ["Code Reviewer"] },
+  "models": { "design": "opus", "implement": "sonnet", "review": "opus" }
+}
 ```
+
+If `models` is absent or partially defined, fill missing keys from defaults: `design: "opus"`, `implement: "sonnet"`, `review: "opus"`.
 
 ### 3. Execute Team Phases
 
@@ -56,6 +63,7 @@ Spawn design agents **in parallel** using the Agent tool:
 ```
 For each agent in team.design:
   Agent tool:
+    model: [story.models.design or "opus"]
     subagent_type: [agent type - see mapping below]
     description: "Design [STORY_ID]"
     prompt: |
@@ -102,6 +110,7 @@ Spawn implementation agents from `team.implement`:
 
 ```
 Agent tool:
+  model: [story.models.implement or "sonnet"]
   subagent_type: "Senior Developer"  # or appropriate type
   description: "Implement [STORY_ID]"
   prompt: |
@@ -137,6 +146,7 @@ Spawn review agent(s) from `team.review`:
 
 ```
 Agent tool:
+  model: [story.models.review or "opus"]
   subagent_type: "Reality Checker"
   description: "Review [STORY_ID]"
   prompt: |

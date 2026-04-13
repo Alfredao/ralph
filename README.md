@@ -109,6 +109,30 @@ Orchestrator picks US-003 (type: "frontend")
 | **ralph-agent** | `/ralph-agent` | Multi-story orchestrator (bash loop or in-session subagents) |
 | **ralph-worker** | `/ralph-worker` | Single-story team lead (spawns design/implement/review agents) |
 
+## Model Selection
+
+Ralph uses different models per phase to balance quality and cost:
+
+| Phase | Default Model | Rationale |
+|-------|--------------|-----------|
+| Design | Opus | Reasoning-heavy: UX analysis, architecture decisions |
+| Implement | Sonnet | Code generation: fast and cost-effective |
+| Review | Opus | Reasoning-heavy: evaluating correctness against criteria |
+
+These defaults are set automatically when generating prd.json via `/ralph-prd` or `/ralph-convert`. You can override them per-story by editing the `models` field in prd.json:
+
+```json
+"models": {
+  "design": "opus",
+  "implement": "sonnet",
+  "review": "opus"
+}
+```
+
+Valid values: `"opus"`, `"sonnet"`, `"haiku"`. Old prd.json files without `models` fall back to the defaults above.
+
+**PRD generation tip:** Since `/ralph-prd` runs in your current session (no subagents), use `/model opus` before running it for the best PRD quality.
+
 ## prd.json Format
 
 ```json
@@ -126,6 +150,11 @@ Orchestrator picks US-003 (type: "frontend")
         "design": [],
         "implement": ["Senior Developer"],
         "review": ["Code Reviewer"]
+      },
+      "models": {
+        "design": "opus",
+        "implement": "sonnet",
+        "review": "opus"
       },
       "acceptance_criteria": [
         "Add status column with default 'pending'",

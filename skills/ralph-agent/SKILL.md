@@ -81,7 +81,7 @@ If none remain → all done, report completion.
 
 ### Step 3: Read Story Team Config
 
-For the highest-priority incomplete story, read its `type` and `team` fields:
+For the highest-priority incomplete story, read its `type`, `team`, and `models` fields:
 
 ```json
 {
@@ -91,9 +91,16 @@ For the highest-priority incomplete story, read its `type` and `team` fields:
     "design": ["UX Researcher", "UI Designer"],
     "implement": ["Senior Developer"],
     "review": ["Code Reviewer"]
+  },
+  "models": {
+    "design": "opus",
+    "implement": "sonnet",
+    "review": "opus"
   }
 }
 ```
+
+If `models` is absent or a key is missing, apply defaults: `design: "opus"`, `implement: "sonnet"`, `review: "opus"`.
 
 ### Step 4: Execute Phases
 
@@ -271,15 +278,21 @@ The orchestrator does NOT:
 
 ## Spawning Teams
 
-Use the Agent tool for each team member:
+Use the Agent tool for each team member. Always include the `model` parameter from the story's `models` field:
 
 ```
 Agent tool call:
-  subagent_type: "Senior Developer"  # or "UX Researcher", "UI Designer", etc.
-  description: "Design US-003"       # or "Implement US-003", "Review US-003"
+  model: "opus"                       # story.models.design (or default)
+  subagent_type: "UX Researcher"      # or "UI Designer", "Senior Developer", etc.
+  description: "Design US-003"        # or "Implement US-003", "Review US-003"
   prompt: |
     [Use the appropriate prompt template from above]
 ```
+
+Model by phase:
+- Design agents: `story.models.design` (default: `"opus"`)
+- Implement agents: `story.models.implement` (default: `"sonnet"`)
+- Review agents: `story.models.review` (default: `"opus"`)
 
 **Parallel spawning:** When multiple agents are in the same phase (e.g., design phase with UX Researcher + UI Designer), spawn them in parallel using multiple Agent calls in the same message.
 
@@ -291,7 +304,10 @@ If `prd.json` stories don't have `type` or `team` fields (old format), fall back
 - Treat as `type: "backend"`
 - Team: `{ "design": [], "implement": ["Senior Developer"], "review": ["Code Reviewer"] }`
 
-This ensures old prd.json files still work.
+If stories don't have a `models` field (or it's partial), apply model defaults:
+- `design: "opus"`, `implement: "sonnet"`, `review: "opus"`
+
+This ensures old prd.json files still work unchanged.
 
 ## Error Handling
 

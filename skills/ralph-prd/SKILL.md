@@ -7,6 +7,10 @@ description: Generates detailed PRDs through interactive questions, then convert
 
 Generate comprehensive Product Requirements Documents optimized for autonomous agent implementation.
 
+## Model Recommendation
+
+ralph-prd runs in your current session. For the highest-quality PRD, use `/model opus` before running this skill — Opus is better at reasoning, planning, and structured output. Sonnet works too, just with lighter analysis.
+
 ## Workflow
 
 ### Step 1: Clarification Questions
@@ -142,6 +146,11 @@ Immediately after saving the markdown PRD, convert it to `prd.json` for ralph-ag
         "implement": ["Senior Developer"],
         "review": ["Code Reviewer"]
       },
+      "models": {
+        "design": "opus",
+        "implement": "sonnet",
+        "review": "opus"
+      },
       "acceptance_criteria": [
         "Specific criterion 1",
         "Specific criterion 2",
@@ -168,7 +177,17 @@ Immediately after saving the markdown PRD, convert it to `prd.json` for ralph-ag
 | `infra` | [] | ["DevOps Automator", "Senior Developer"] | ["Code Reviewer"] |
 | `data` | [] | ["Backend Architect"] | ["API Tester", "Code Reviewer"] |
 
-3. **Dependency ordering** — Assign priority numbers so dependencies flow low→high:
+3. **Model assignment** — Every story gets a `models` object specifying which Claude model to use per phase. Apply defaults based on story type:
+
+   | Phase | Default Model | Rationale |
+   |-------|--------------|-----------|
+   | design | `opus` | Reasoning-heavy: UX analysis, architecture decisions |
+   | implement | `sonnet` | Code generation: fast and cost-effective |
+   | review | `opus` | Reasoning-heavy: evaluating correctness against criteria |
+
+   Backend/infra/data stories have no design phase — omit or leave `design: "opus"` for consistency. Users can override per-story by changing the values to `"opus"`, `"sonnet"`, or `"haiku"`.
+
+4. **Dependency ordering** — Assign priority numbers so dependencies flow low→high:
    - Schema/database changes first
    - Backend/API logic second
    - UI components third
@@ -186,6 +205,7 @@ Immediately after saving the markdown PRD, convert it to `prd.json` for ralph-ag
 - [ ] No vague acceptance criteria
 - [ ] Branch name follows convention
 - [ ] Every story has a valid `type` and `team` object
+- [ ] Every story has a `models` object with `design`, `implement`, and `review` keys
 
 ## User Story Requirements
 
