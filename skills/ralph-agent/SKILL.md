@@ -172,8 +172,17 @@ Implement this story following the design brief and acceptance criteria.
    - Tests (npm test or equivalent)
 5. For UI changes: verify visually in browser
 6. Update progress.txt with learnings
-7. Commit changes: "feat: [Brief description]"
-8. Do NOT update prd.json yet (reviewer will confirm first)
+7. Update prd.json to set this story's `passes: true`
+8. Stage all changes (code + progress.txt + prd.json) and create a SINGLE commit
+
+## Commit message rules (STRICT)
+- Format: `feat: <imperative short description>` or `fix: <imperative short description>`
+- NO story numbers in the subject (never `feat: US-011 ...`, never `feat(US-011): ...`)
+- NO parenthetical scope prefixes (never `feat(auth): ...`, `feat(api): ...`)
+- NO body/description needed — subject only
+- ONE commit per story covering code + progress.txt + prd.json — never a separate `chore: update prd.json` or `chore: update progress.txt` commit
+- Never include Claude as author/co-author
+- Delete any temporary `review-*.md` or `design-brief-*.md` files BEFORE staging so they don't slip into the commit
 
 ## Rules
 - Make ONLY changes needed for this story
@@ -236,7 +245,7 @@ Write your review to `review-[STORY_ID].md`:
 
 After review:
 
-- **APPROVED**: Update `prd.json` to set `passes: true`, clean up design/review files
+- **APPROVED**: `prd.json` should already be updated by the implementer in the same commit. Clean up design/review files (they were not staged). Do NOT create an extra `chore:` commit for prd.json — if it was missed, amend the implementer's commit instead.
 - **NEEDS_CHANGES**: Re-spawn implementation agent with review feedback (max 2 retry cycles)
   - Include the review file content in the implementation prompt
   - After 2 failed review cycles, stop and report blocker to user

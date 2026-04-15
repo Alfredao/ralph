@@ -16,7 +16,7 @@ Workers are team-aware implementers. They:
 - Spawn specialized agents for design, implementation, and review
 - Coordinate the team to deliver the story
 - Write learnings back to files
-- Commit and update prd.json
+- Commit code + progress.txt + prd.json as ONE commit with `feat: <imperative>` (no story numbers, no scope prefixes)
 
 ## Workflow
 
@@ -132,7 +132,16 @@ Agent tool:
     4. Run quality checks: typecheck, lint, tests
     5. For UI: verify in browser
     6. Update progress.txt with learnings
-    7. Commit: "feat: [Brief description]"
+    7. Update prd.json — set this story's passes: true
+    8. Delete temporary review-*.md / design-brief-*.md files if present
+    9. Stage code + progress.txt + prd.json and create ONE commit
+
+    ## Commit message rules (STRICT)
+    - Format: `feat: <imperative>` or `fix: <imperative>` — subject only, no body
+    - NO story numbers (never `feat: US-011 ...`, never `feat(US-011): ...`)
+    - NO parenthetical scope prefixes (never `feat(api): ...`)
+    - ONE commit bundling code + progress.txt + prd.json — never a separate `chore:` commit for prd.json/progress.txt
+    - No Claude as author/co-author
 
     ## Rules
     - ONLY changes needed for this story
