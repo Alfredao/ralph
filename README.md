@@ -16,6 +16,7 @@ Memory persists through files, not conversation context:
 - `progress.txt` — Learnings accumulated across iterations
 - `design-brief-US-XXX.md` — Temporary design phase output (cleaned up after approval)
 - `review-US-XXX.md` — Temporary review phase output (cleaned up after approval)
+- `.claude/ralph-loop.local.md` — Loop state (only while `/ralph-loop` is active)
 - Git commit history
 
 Each iteration starts with clean context, forcing proper documentation.
@@ -27,6 +28,14 @@ Copy the skills to your Claude Code skills directory:
 ```bash
 cp -r skills/* ~/.claude/skills/
 ```
+
+### Prerequisites
+
+- `jq` — required by `ralph-agent`'s bash loop and by the `/ralph-loop` Stop hook
+- `perl` — required by the `/ralph-loop` Stop hook (used to extract `<promise>` tags from the transcript)
+- `claude` CLI on `PATH` — required by `ralph-agent/ralph.sh`
+
+On macOS: `brew install jq` (perl ships with the OS).
 
 ## Usage
 
@@ -45,7 +54,9 @@ No need to run `/ralph-convert` separately (it still exists for re-converting ma
 
 ### 2. Run the Agent Loop
 
-**Option A: Bash loop (recommended — true process isolation)**
+Pick one of three execution modes depending on PRD size and how much context drift you want to tolerate.
+
+**Option A: Bash loop (true process isolation)**
 
 ```bash
 ~/.claude/skills/ralph-agent/ralph.sh [max_iterations]
@@ -53,13 +64,37 @@ No need to run `/ralph-convert` separately (it still exists for re-converting ma
 
 Spawns completely fresh Claude CLI sessions per iteration. Best for long-running implementations where context buildup matters.
 
-**Option B: In-session subagents**
+**Option B: In-session subagents (single turn orchestration)**
 
 ```
 /ralph-agent
 ```
 
 Orchestrates within your current session using subagents. Convenient for smaller PRDs.
+
+**Option C: Stop-hook loop (in-session, fresh prompt boundary per story)**
+
+```
+/ralph-loop
+/ralph-loop --max-iterations 30
+```
+
+Activates a project-local Stop hook that reads `prd.json`, picks the next incomplete story, and re-prompts you to handle it via `ralph-worker`. Each story gets a fresh user-message boundary inside the same session — no CLI spawn cost, but less context buildup than Option B.
+
+To stop early:
+
+```
+/cancel-ralph
+/cancel-ralph --remove-hook   # also unregister the hook from .claude/settings.local.json
+```
+
+The loop ends naturally when every story has `passes: true` or `--max-iterations` is hit. The hook re-checks `prd.json` on every Stop event, so a falsely asserted `<promise>RALPH-COMPLETE</promise>` is rejected if any story is still incomplete.
+
+| Option | Process model | Spawn cost | Context drift | Live visibility |
+|--------|--------------|-----------|---------------|-----------------|
+| A — bash loop | New CLI per iteration | High | Lowest | Terminal only |
+| B — `/ralph-agent` | One turn, subagents | None | Highest | Full |
+| C — `/ralph-loop` | Same session, hook re-prompts | None | Medium | Full |
 
 ### 3. Run a Single Story (optional)
 
@@ -90,6 +125,50 @@ Orchestrator picks US-003 (type: "frontend")
       +-- Output: APPROVED or NEEDS_CHANGES (max 2 retry cycles)
 ```
 
+### Stop-Hook Loop Flow (`/ralph-loop`)
+
+```
+You run /ralph-loop
+  |
+  v
+Setup: write .claude/ralph-loop.local.md + register hook in settings.local.json
+  |
+  v
++------------------------------------------+
+|  You finish your turn                    |
+|  v                                       |
+|  Claude Code fires Stop hook             |
+|  v                                       |
+|  Hook reads prd.json, finds next story   |
+|     where passes: false                  |
+|  |                                       |
+|  +- All stories pass? -- yes --> exit, cleanup
+|  |                                       |
+|  +- Iteration >= max?  -- yes --> exit, cleanup
+|  |                                       |
+|  +- <promise>RALPH-COMPLETE</promise>    |
+|  |   AND prd.json confirms? -- yes --> exit, cleanup
+|  |                                       |
+|  v no                                    |
+|  Hook emits {"decision":"block",         |
+|              "reason":"<story prompt>"}  |
+|  |                                       |
+|  v                                       |
+|  Claude receives prompt, spawns the team |
+|  for that story via ralph-worker         |
+|  (UX Researcher, UI Designer, Senior Dev,|
+|   Code Reviewer ...)                     |
+|  |                                       |
+|  v                                       |
+|  Story passes review -> passes: true     |
+|  committed to prd.json                   |
++------------------------------------------+
+   ^                                     |
+   +-------- next Stop event ------------+
+```
+
+The hook re-queries `prd.json` every iteration, so a falsely asserted `<promise>RALPH-COMPLETE</promise>` is rejected if any story is still incomplete — Claude can't lie its way out of the loop.
+
 ### Team Assignment by Story Type
 
 | Type | Design Phase | Implement Phase | Review Phase |
@@ -107,6 +186,8 @@ Orchestrator picks US-003 (type: "frontend")
 | **ralph-prd** | `/ralph-prd` | Interactive PRD generation + prd.json conversion (single command) |
 | **ralph-convert** | `/ralph-convert` | Standalone PRD-to-JSON converter (for re-converting edited PRDs) |
 | **ralph-agent** | `/ralph-agent` | Multi-story orchestrator (bash loop or in-session subagents) |
+| **ralph-loop** | `/ralph-loop` | Stop-hook driven loop — re-prompts you per incomplete story until prd.json fully passes |
+| **cancel-ralph** | `/cancel-ralph` | Stop an active ralph-loop (use `--remove-hook` to also unregister the hook) |
 | **ralph-worker** | `/ralph-worker` | Single-story team lead (spawns design/implement/review agents) |
 
 ## Model Selection
@@ -180,6 +261,9 @@ project/
 ├── design-brief-US-XXX.md    # Temporary: design phase output
 ├── review-US-XXX.md          # Temporary: review phase output
 ├── archive/                  # Previous prd.json files
+├── .claude/
+│   ├── ralph-loop.local.md   # Loop state (only while /ralph-loop is active)
+│   └── settings.local.json   # Stop hook registration (added by /ralph-loop)
 └── AGENTS.md                 # Module-specific patterns (optional)
 ```
 
@@ -201,4 +285,4 @@ project/
 
 ## Credits
 
-Based on [snarktank/ralph](https://github.com/snarktank/ralph) for AMP.
+Based on [snarktank/ralph](https://github.com/snarktank/ralph) for AMP. The `/ralph-loop` Stop-hook mechanism is inspired by Anthropic's [`ralph-wiggum` plugin](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum).
