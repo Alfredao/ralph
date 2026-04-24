@@ -101,6 +101,22 @@ if [[ -n "$LAST_OUTPUT" ]]; then
     REMAINING=$(jq '[.stories[] | select(.passes == false or .passes == null)] | length' "$PRD_FILE" 2>/dev/null || echo "999")
     if [[ "$REMAINING" -eq 0 ]]; then
       echo "✅ Ralph loop: all stories passing. Loop complete." >&2
+      # Suggest a PR command if gh is available
+      if command -v gh &> /dev/null; then
+        PRD_BRANCH=$(jq -r '.branch // empty' "$PRD_FILE")
+        PRD_NAME=$(jq -r '.name // empty' "$PRD_FILE")
+        if [[ -n "$PRD_BRANCH" ]]; then
+          echo "" >&2
+          echo "Ready to open a PR? Push and run:" >&2
+          if [[ -n "$PRD_NAME" ]]; then
+            echo "  git push -u origin \"$PRD_BRANCH\"" >&2
+            echo "  gh pr create --draft --title \"$PRD_NAME\" --body \"See prd.json for the full story breakdown.\"" >&2
+          else
+            echo "  git push -u origin \"$PRD_BRANCH\"" >&2
+            echo "  gh pr create --draft" >&2
+          fi
+        fi
+      fi
       rm "$STATE_FILE"
       exit 0
     fi

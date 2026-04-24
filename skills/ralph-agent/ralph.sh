@@ -306,9 +306,25 @@ main() {
             jq -r '.stories[] | "  - \(.id): \(.title) \(if .passes then "✓" else "✗" end)"' "$PRD_FILE"
             echo ""
 
-            local branch
+            local branch name
             branch=$(jq -r '.branch' "$PRD_FILE")
+            name=$(jq -r '.name // empty' "$PRD_FILE")
             log_info "Branch: $branch"
+
+            # Suggest a PR command if gh is available and we're tracking a remote.
+            # Copy-paste friendly — no side effects, no git operations here.
+            if command -v gh &> /dev/null && git rev-parse --is-inside-work-tree &> /dev/null; then
+                echo ""
+                log_info "Ready to open a PR? Push the branch and run:"
+                if [ -n "$name" ] && [ "$name" != "null" ]; then
+                    echo "  git push -u origin \"$branch\""
+                    echo "  gh pr create --draft --title \"$name\" --body \"See prd.json for the full story breakdown.\""
+                else
+                    echo "  git push -u origin \"$branch\""
+                    echo "  gh pr create --draft"
+                fi
+            fi
+
             exit 0
         fi
 

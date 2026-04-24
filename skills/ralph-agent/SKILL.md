@@ -47,7 +47,7 @@ Repeat until all stories have `passes: true` (or a blocker is hit):
 
 ### Step 3 — Report completion
 
-When all stories pass:
+When all stories pass, print the summary **and** suggest the next step — pushing the branch and opening a PR. Only surface the PR command if `gh` is on PATH (check with `command -v gh`).
 
 ```
 All stories complete!
@@ -55,7 +55,13 @@ All stories complete!
 - US-002: <title> ✓
 ...
 Branch: feature/<name>
+
+Ready to open a PR? Push the branch and run:
+  git push -u origin feature/<name>
+  gh pr create --draft --title "<prd.json.name>" --body "See prd.json for the full story breakdown."
 ```
+
+Do NOT run `git push` or `gh pr create` yourself. These are shared-state operations (per the project's tool-use guidelines) and the user should confirm before publishing. Print the commands; let the user decide.
 
 ## What this skill does NOT do
 
