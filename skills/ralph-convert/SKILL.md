@@ -149,9 +149,10 @@ UI-changing stories MUST also include:
 1. **Read the PRD** from `tasks/prd-[feature].md`
 2. **Extract user stories** and acceptance criteria
 3. **Validate sizing** - split any stories that are too large
-4. **Order by dependencies** - assign priority numbers
+4. **Order by dependencies** - assign `priority` numbers AND explicit `depends_on: ["US-XXX", ...]` arrays when one story genuinely requires another to finish first. The loop enforces `depends_on` — it will not pick a story until every id in that array has `passes: true`. Stories with no prerequisites get `depends_on: []`.
 5. **Generate prd.json** in the project root
 6. **Archive previous prd.json** if it exists (move to `archive/` with timestamp)
+7. **Validate** no dependency cycles and no dangling ids before finalizing
 
 ## Example Conversion
 
@@ -177,6 +178,7 @@ Acceptance Criteria:
       "title": "Add status column to tasks table",
       "description": "As a developer, I want a status column in the database so that tasks can track their state.",
       "priority": 1,
+      "depends_on": [],
       "type": "backend",
       "team": {
         "design": [],
@@ -203,6 +205,7 @@ Acceptance Criteria:
       "title": "Return status in task API",
       "description": "As a frontend developer, I want the API to include status so I can display it.",
       "priority": 2,
+      "depends_on": ["US-001"],
       "type": "backend",
       "team": {
         "design": [],
@@ -228,6 +231,7 @@ Acceptance Criteria:
       "title": "Create TaskStatusBadge component",
       "description": "As a user, I want to see task status visually so I can quickly identify state.",
       "priority": 3,
+      "depends_on": [],
       "type": "frontend",
       "team": {
         "design": ["UX Researcher", "UI Designer"],
@@ -253,6 +257,7 @@ Acceptance Criteria:
       "title": "Display status in task list",
       "description": "As a user, I want to see status badges in the task list.",
       "priority": 4,
+      "depends_on": ["US-002", "US-003"],
       "type": "frontend",
       "team": {
         "design": ["UX Researcher", "UI Designer"],
@@ -278,6 +283,7 @@ Acceptance Criteria:
       "title": "Add status filter to task list",
       "description": "As a user, I want to filter tasks by status so I can focus on specific items.",
       "priority": 5,
+      "depends_on": ["US-004"],
       "type": "frontend",
       "team": {
         "design": ["UX Researcher", "UI Designer"],

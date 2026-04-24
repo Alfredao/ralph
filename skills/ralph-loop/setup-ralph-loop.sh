@@ -155,11 +155,18 @@ mv "$TMP" "$SETTINGS_FILE"
 TOTAL=$(jq '.stories | length' "$PRD_FILE")
 DONE=$(jq '[.stories[] | select(.passes == true)] | length' "$PRD_FILE")
 NEXT_STORY=$(jq -r '
-  .stories
-  | map(select(.passes == false or .passes == null))
+  .stories as $all
+  | $all
+  | map(select(
+      (.passes == false or .passes == null)
+      and (
+        (.depends_on // [])
+        | all(. as $id | $all | any(.id == $id and .passes == true))
+      )
+    ))
   | sort_by(.priority // 999)
   | first
-  | "\(.id): \(.title)"
+  | if . == null then "(none — all stories already pass or deps blocked)" else "\(.id): \(.title)" end
 ' "$PRD_FILE" 2>/dev/null || echo "(none — all stories already pass)")
 
 cat <<EOF

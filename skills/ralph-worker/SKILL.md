@@ -40,6 +40,7 @@ Find your assigned story in `prd.json` by ID. Note:
 - **type** field (backend/frontend/fullstack/infra/data)
 - **team** object with design/implement/review arrays
 - **models** object with model names per phase (`"opus"`, `"sonnet"`, or `"haiku"`)
+- **depends_on** array (may be empty or absent). The orchestrator/loop filters on this — by the time you receive the story, every id in `depends_on` is guaranteed to have `passes: true`. You don't need to re-check; use it as context for what's already been built.
 
 If no `type` or `team` fields exist (old format), default to:
 ```json

@@ -71,6 +71,7 @@ The worker expects each story to carry:
   "id": "US-003",
   "title": "...",
   "priority": 3,
+  "depends_on": ["US-001", "US-002"],
   "passes": false,
   "type": "frontend",
   "team": {
@@ -86,7 +87,9 @@ The worker expects each story to carry:
 }
 ```
 
-Missing `type` / `team` / `models` → worker applies backend defaults. See `ralph-worker` for the exact mapping table and defaults.
+- Missing `type` / `team` / `models` → worker applies backend defaults. See `ralph-worker` for the exact mapping table and defaults.
+- Missing `depends_on` → treated as `[]` (no prerequisites).
+- A story is **runnable** only when every id in its `depends_on` has `passes: true`. The orchestrator filters on this; stories with unmet deps are skipped until their prerequisites finish. If incomplete stories remain but none are runnable, the loop stops with a dependency-deadlock error.
 
 ## Error handling
 

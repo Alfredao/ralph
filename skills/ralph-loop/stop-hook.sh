@@ -81,17 +81,34 @@ if [[ -n "$LAST_OUTPUT" ]]; then
   fi
 fi
 
-# --- find next incomplete story (authoritative completion check) --------------
+# --- find next runnable story (respects depends_on) ---------------------------
+#
+# A story is runnable when it's incomplete AND every id in its depends_on array
+# belongs to another story with passes: true. Stories with unmet deps are
+# skipped until their prerequisites pass.
 
 STORY_JSON=$(jq -c '
-  .stories
-  | map(select(.passes == false or .passes == null))
+  .stories as $all
+  | $all
+  | map(select(
+      (.passes == false or .passes == null)
+      and (
+        (.depends_on // [])
+        | all(. as $id | $all | any(.id == $id and .passes == true))
+      )
+    ))
   | sort_by(.priority // 999)
   | first // null
 ' "$PRD_FILE")
 
 if [[ "$STORY_JSON" == "null" ]] || [[ -z "$STORY_JSON" ]]; then
-  echo "✅ Ralph loop: all stories in $PRD_FILE have passes: true. Loop complete." >&2
+  # Distinguish "all done" from "deadlock"
+  INCOMPLETE=$(jq '[.stories[] | select(.passes == false or .passes == null)] | length' "$PRD_FILE")
+  if [[ "$INCOMPLETE" -eq 0 ]]; then
+    echo "✅ Ralph loop: all stories in $PRD_FILE have passes: true. Loop complete." >&2
+  else
+    echo "🛑 Ralph loop: $INCOMPLETE incomplete story(s) but none runnable — dependency deadlock. Check depends_on in $PRD_FILE. Stopping." >&2
+  fi
   rm "$STATE_FILE"
   exit 0
 fi

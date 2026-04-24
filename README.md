@@ -226,6 +226,7 @@ Valid values: `"opus"`, `"sonnet"`, `"haiku"`. Old prd.json files without `model
       "title": "Add status column to tasks table",
       "description": "As a developer, I want a status column so that tasks can track their state.",
       "priority": 1,
+      "depends_on": [],
       "type": "backend",
       "team": {
         "design": [],
@@ -271,7 +272,7 @@ project/
 
 1. **Right team for the right story** — A backend migration doesn't need UX research. A complex UI component shouldn't be built without design thinking.
 2. **Right-sized stories** — Each story completable in one focused session. Split anything that touches more than 2-3 files.
-3. **Dependency ordering** — Database first, APIs second, UI third, integrations last.
+3. **Dependency ordering** — Use `priority` (integer) as a hint and `depends_on: ["US-XXX"]` for hard prerequisites. The loop will not pick a story until every id in `depends_on` has `passes: true`. Typical flow: database → APIs → UI → integrations.
 4. **Verifiable criteria** — No vague language. "Returns 404 when not found", not "handles errors properly".
 5. **Fresh context** — Each iteration starts clean, relies on files for state.
 6. **Document learnings** — `progress.txt` carries knowledge forward across iterations.

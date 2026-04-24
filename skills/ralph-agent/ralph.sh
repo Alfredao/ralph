@@ -100,17 +100,28 @@ archive_if_needed() {
     echo "$current_branch" > .ralph_branch
 }
 
+# jq filter: next runnable story = incomplete AND all depends_on satisfied.
+# Stories with unmet dependencies are skipped; the loop picks them later
+# once their prerequisites have passes: true.
+NEXT_RUNNABLE_JQ='
+  .stories as $all
+  | $all
+  | map(select(
+      (.passes == false or .passes == null)
+      and (
+        (.depends_on // [])
+        | all(. as $id | $all | any(.id == $id and .passes == true))
+      )
+    ))
+  | sort_by(.priority // 999)
+  | .[0]
+'
+
 # Get the Claude model ID for the next story's implement phase
 # Reads models.implement from prd.json, falls back to sonnet
 get_next_story_model_id() {
     local short_name
-    short_name=$(jq -r '
-      .stories
-      | map(select(.passes == false))
-      | sort_by(.priority)
-      | .[0].models.implement
-      // "sonnet"
-    ' "$PRD_FILE" 2>/dev/null)
+    short_name=$(jq -r "$NEXT_RUNNABLE_JQ"' | .models.implement // "sonnet"' "$PRD_FILE" 2>/dev/null)
 
     case "$short_name" in
         opus)   echo "claude-opus-4-6" ;;
@@ -119,16 +130,24 @@ get_next_story_model_id() {
     esac
 }
 
-# Check if all stories are complete
+# Check if all stories are complete (ignores dependencies — pure passes count)
 all_stories_complete() {
     local incomplete
     incomplete=$(jq '[.stories[] | select(.passes == false)] | length' "$PRD_FILE" 2>/dev/null || echo "999")
     [ "$incomplete" -eq 0 ]
 }
 
-# Get next incomplete story info
+# Get next runnable story info (respects depends_on)
 get_next_story() {
-    jq -r '.stories | map(select(.passes == false)) | sort_by(.priority) | .[0] | "\(.id): \(.title)"' "$PRD_FILE" 2>/dev/null
+    jq -r "$NEXT_RUNNABLE_JQ"' | if . == null then empty else "\(.id): \(.title)" end' "$PRD_FILE" 2>/dev/null
+}
+
+# Deadlock detector: incomplete stories remain but none are runnable
+# (every incomplete story has at least one unmet dependency).
+no_runnable_story() {
+    local result
+    result=$(jq -r "$NEXT_RUNNABLE_JQ"' | if . == null then "none" else "ok" end' "$PRD_FILE" 2>/dev/null)
+    [ "$result" = "none" ]
 }
 
 # Count stories
@@ -199,6 +218,14 @@ main() {
 
     # Main iteration loop
     for ((i=1; i<=MAX_ITERATIONS; i++)); do
+        # Dependency deadlock check
+        if no_runnable_story && ! all_stories_complete; then
+            log_error "Incomplete stories remain but none are runnable."
+            log_error "Dependency deadlock — check depends_on fields in prd.json:"
+            jq -r '.stories[] | select(.passes == false or .passes == null) | "  - \(.id): depends_on=\(.depends_on // [])"' "$PRD_FILE"
+            exit 1
+        fi
+
         local next_story
         next_story=$(get_next_story)
 

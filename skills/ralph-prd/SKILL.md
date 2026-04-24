@@ -140,6 +140,7 @@ Immediately after saving the markdown PRD, convert it to `prd.json` for ralph-ag
       "title": "Story title",
       "description": "As a [user], I want [action] so that [benefit].",
       "priority": 1,
+      "depends_on": [],
       "type": "backend",
       "team": {
         "design": [],
@@ -187,19 +188,23 @@ Immediately after saving the markdown PRD, convert it to `prd.json` for ralph-ag
 
    Backend/infra/data stories have no design phase — omit or leave `design: "opus"` for consistency. Users can override per-story by changing the values to `"opus"`, `"sonnet"`, or `"haiku"`.
 
-4. **Dependency ordering** — Assign priority numbers so dependencies flow low→high:
-   - Schema/database changes first
-   - Backend/API logic second
-   - UI components third
-   - Integration/summary views last
+4. **Dependency ordering** — Two mechanisms, used together:
+   - **`priority`** (integer, low→high) — hints at the order stories should run. Coarse.
+   - **`depends_on`** (array of story ids) — explicit, loop-enforced dependencies. The loop will NOT pick a story until every id in its `depends_on` has `passes: true`.
 
-4. **Required criteria** — Every story must include "Typecheck passes". UI stories must also include "Verify in browser".
+   Use `depends_on` whenever one story genuinely can't start until another finishes (e.g., US-007 needs the schema from US-003). Stories with no prerequisites omit the field or set it to `[]`.
+
+   Typical flow: schema/DB first → backend/API → UI → integration/summary views. Express that via `depends_on`, not just `priority`.
+
+5. **Required criteria** — Every story must include "Typecheck passes". UI stories must also include "Verify in browser".
 
 5. **Archive previous prd.json** — If prd.json already exists, move it to `archive/prd-[branch]-[timestamp].json` before creating the new one.
 
 **Validation checklist before saving prd.json:**
 - [ ] All stories are right-sized (one session each)
 - [ ] Dependencies flow from low to high priority
+- [ ] Every `depends_on` id references an existing story (no typos, no dangling refs)
+- [ ] No dependency cycles (A → B → A)
 - [ ] Every story has "Typecheck passes"
 - [ ] UI stories have "Verify in browser"
 - [ ] No vague acceptance criteria
