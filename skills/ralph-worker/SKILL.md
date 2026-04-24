@@ -59,14 +59,19 @@ Based on the story's team config, run phases sequentially:
 
 #### Phase 1: DESIGN (skip if team.design is empty)
 
-Spawn design agents **in parallel** using the Agent tool:
+Spawn design agents **in parallel** using the Agent tool. Each agent writes to its **own** file — never a shared one — so parallel writes can't race or overwrite each other.
+
+**Filename convention:** `design-brief-[STORY_ID]-[ROLE_SLUG].md`, where `ROLE_SLUG` is the role lowercased with spaces replaced by dashes (e.g., `UX Researcher` → `ux-researcher`, `UI Designer` → `ui-designer`, `Backend Architect` → `backend-architect`).
 
 ```
 For each agent in team.design:
+  Compute role_slug = lowercase(role).replace(" ", "-")
+  brief_file = "design-brief-[STORY_ID]-[role_slug].md"
+
   Agent tool:
     model: [story.models.design or "opus"]
     subagent_type: [agent type - see mapping below]
-    description: "Design [STORY_ID]"
+    description: "Design [STORY_ID] ([role])"
     prompt: |
       You are a [ROLE] analyzing story [STORY_ID]: [TITLE]
 
@@ -81,13 +86,17 @@ For each agent in team.design:
       3. Explore existing codebase patterns
 
       ## Output
-      Write your recommendations to `design-brief-[STORY_ID].md`:
+      Write your recommendations to `[brief_file]` (this is YOUR file — do NOT
+      write to any other design-brief-*.md file, and do NOT append to a shared
+      file). Use the Write tool to create it fresh:
       - Recommended approach
       - Existing patterns to reuse
       - Accessibility considerations (if UI)
       - Component/architecture structure
       - Risks and gotchas
 ```
+
+Spawn all design agents in a single Agent-tool call batch so they run concurrently. Because each agent owns a distinct file, parallel execution is safe.
 
 **Agent type mapping:**
 
@@ -120,7 +129,9 @@ Agent tool:
     ## Context Files
     1. Read `prd.json` for acceptance criteria
     2. Read `progress.txt` for patterns
-    3. Read `design-brief-[STORY_ID].md` if exists - FOLLOW these recommendations
+    3. Read EVERY `design-brief-[STORY_ID]-*.md` file (one per design agent).
+       FOLLOW all recommendations across them; reconcile conflicts by picking
+       the stricter constraint (e.g., tighter a11y, narrower component scope).
     4. Read `AGENTS.md` if exists
 
     ## Acceptance Criteria
@@ -164,7 +175,7 @@ Agent tool:
 
     ## Review Steps
     1. Read `prd.json` for acceptance criteria
-    2. Read `design-brief-[STORY_ID].md` if exists
+    2. Read EVERY `design-brief-[STORY_ID]-*.md` file (one per design agent)
     3. Run `git diff HEAD~1` to see changes
     4. Read modified files
     5. Run quality checks (typecheck, lint, tests)
@@ -219,7 +230,7 @@ Read both files before coding:
    commit is already applied, so you're editing on top of it.
 3. Run quality checks: typecheck, lint, tests.
 4. Delete `retry-diff-[STORY_ID].md`, `review-[STORY_ID].md`, and any
-   `design-brief-*.md` before staging.
+   `design-brief-[STORY_ID]-*.md` before staging.
 5. Stage your fixes alongside the existing story changes.
 6. Amend the existing commit: `git commit --amend --no-edit` (or edit the
    subject only if the story scope genuinely shifted). This keeps the story
@@ -235,7 +246,7 @@ After 2 failed review cycles (3 total implement attempts), stop and report the b
 # Set passes: true for this story
 
 # Clean up temporary files
-rm -f design-brief-[STORY_ID].md design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
+rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
 
 # Update progress.txt with learnings
 ```
@@ -301,7 +312,7 @@ When run manually (not via ralph-agent):
 
 When spawned by ralph-agent:
 - You receive story ID and criteria in the prompt
-- The orchestrator may have already run design phase -- check for `design-brief-*.md`
+- The orchestrator may have already run design phase -- check for `design-brief-[STORY_ID]-*.md` files
 - If design brief exists, skip Phase 1 and go straight to Phase 2
 - Return success/failure status
 - Orchestrator handles what's next

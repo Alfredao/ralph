@@ -14,7 +14,7 @@ Autonomous multi-agent system that turns a feature description into a structured
 Memory persists through files, not conversation context:
 - `prd.json` — Story tracking, team config, and completion status
 - `progress.txt` — Learnings accumulated across iterations
-- `design-brief-US-XXX.md` — Temporary design phase output (cleaned up after approval)
+- `design-brief-US-XXX-<role>.md` — Temporary design phase output, one file per design agent (e.g. `-ux-researcher.md`, `-ui-designer.md`). Cleaned up after approval.
 - `review-US-XXX.md` — Temporary review phase output (cleaned up after approval)
 - `retry-diff-US-XXX.md` — Temporary snapshot of a rejected implementation attempt, passed to the retry agent alongside the review feedback (cleaned up after approval)
 - `.claude/ralph-loop.local.md` — Loop state (only while `/ralph-loop` is active)
@@ -112,10 +112,9 @@ Each story gets the right team based on its `type` field. The orchestrator spawn
 ```
 Orchestrator picks US-003 (type: "frontend")
   |
-  +-- Phase 1: DESIGN (parallel agents)
-  |   +-- UX Researcher -> interaction patterns, accessibility
-  |   +-- UI Designer -> component structure, visual specs
-  |   +-- Output: design-brief-US-003.md
+  +-- Phase 1: DESIGN (parallel agents, one file per agent)
+  |   +-- UX Researcher -> design-brief-US-003-ux-researcher.md
+  |   +-- UI Designer   -> design-brief-US-003-ui-designer.md
   |
   +-- Phase 2: IMPLEMENT (sequential)
   |   +-- Senior Developer -> implements using design brief
@@ -260,7 +259,7 @@ project/
 ├── progress.txt              # Learnings log (carried across iterations)
 ├── tasks/
 │   └── prd-[feature].md      # Human-readable PRD
-├── design-brief-US-XXX.md    # Temporary: design phase output
+├── design-brief-US-XXX-*.md  # Temporary: one file per design agent
 ├── review-US-XXX.md          # Temporary: review phase output
 ├── retry-diff-US-XXX.md      # Temporary: rejected-attempt snapshot (retries only)
 ├── archive/                  # Previous prd.json files
