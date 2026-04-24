@@ -195,20 +195,30 @@ Agent tool:
        session, a retry amend that half-failed, or manual cleanup.)
        Fallback if the handoff file is missing: use `git show HEAD`.
     4. Read modified files
-    5. Run quality checks (typecheck, lint, tests)
+    5. Run quality checks. Typecheck, lint, and the **FULL project test suite**
+       (not just the tests introduced by this story). Examples: `npm test`,
+       `pytest`, `go test ./...`, `cargo test`, etc. The point is to catch
+       regressions — if this story broke a test added by an earlier story,
+       that is NEEDS_CHANGES, not a pre-existing failure to ignore.
+    6. If a test that was passing on the prior story commit now fails, note
+       which prior story likely owns it (grep for story id in `progress.txt`
+       or commit log) and include that in the findings.
 
     ## Checklist
     - All acceptance criteria met
     - Code follows existing patterns
     - Design brief followed (if applicable)
     - No unnecessary scope creep
-    - Quality checks pass
+    - Typecheck + lint pass
+    - Full test suite passes — including tests from prior stories
+    - No regressions introduced (prior-story tests still pass)
 
     ## Output
     Write to `review-[STORY_ID].md`:
     - Result: APPROVED or NEEDS_CHANGES
     - Per-criterion pass/fail
-    - Issues found (if any)
+    - Issues found (if any) — distinguish story-local issues from REGRESSIONS
+      of prior-story behavior
     - Fix suggestions (if NEEDS_CHANGES)
 ```
 
@@ -381,6 +391,7 @@ details and intervention options.
 - Pass review feedback AND the rejected diff (`retry-diff-[STORY_ID].md`) on retries
 - Escalate the implement model to `opus` on the last retry (retry #2) unless it's already `opus`
 - Amend the story commit on retry — one commit per story, even after review cycles
+- Run the FULL test suite in the review phase — catches regressions from prior stories, not just story-local pass/fail
 - Clean up temporary files after success
 - Document learnings in progress.txt
 - Write `.ralph-blocker.md` and preserve review/retry-diff files when the retry cap is reached
@@ -396,6 +407,7 @@ details and intervention options.
 - Point the reviewer at `git diff HEAD~1` — always pass the SHA via `.ralph-commit-[STORY_ID]`
 - Delete `review-[STORY_ID].md` or `retry-diff-[STORY_ID].md` when writing a blocker — the user needs them
 - Mark a story `passes: true` when writing a blocker — the whole point is that it did NOT pass
+- Let the reviewer run only the new story's tests — regressions in prior stories count as NEEDS_CHANGES
 
 ## Standalone Mode
 
