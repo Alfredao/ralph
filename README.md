@@ -16,6 +16,7 @@ Memory persists through files, not conversation context:
 - `progress.txt` — Learnings accumulated across iterations
 - `design-brief-US-XXX.md` — Temporary design phase output (cleaned up after approval)
 - `review-US-XXX.md` — Temporary review phase output (cleaned up after approval)
+- `retry-diff-US-XXX.md` — Temporary snapshot of a rejected implementation attempt, passed to the retry agent alongside the review feedback (cleaned up after approval)
 - `.claude/ralph-loop.local.md` — Loop state (only while `/ralph-loop` is active)
 - Git commit history
 
@@ -261,6 +262,7 @@ project/
 │   └── prd-[feature].md      # Human-readable PRD
 ├── design-brief-US-XXX.md    # Temporary: design phase output
 ├── review-US-XXX.md          # Temporary: review phase output
+├── retry-diff-US-XXX.md      # Temporary: rejected-attempt snapshot (retries only)
 ├── archive/                  # Previous prd.json files
 ├── .claude/
 │   ├── ralph-loop.local.md   # Loop state (only while /ralph-loop is active)

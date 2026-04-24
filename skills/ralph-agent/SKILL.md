@@ -105,6 +105,7 @@ project/
 ├── progress.txt              # Learnings log (worker writes)
 ├── design-brief-US-XXX-*.md  # Temporary: cleaned up by worker
 ├── review-US-XXX.md          # Temporary: cleaned up by worker
+├── retry-diff-US-XXX.md      # Temporary: only during review retries, cleaned up by worker
 ├── archive/                  # Previous prd.json files
 └── AGENTS.md                 # Module patterns (optional)
 ```

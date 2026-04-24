@@ -134,7 +134,7 @@ Agent tool:
     5. For UI: verify in browser
     6. Update progress.txt with learnings
     7. Update prd.json — set this story's passes: true
-    8. Delete temporary review-*.md / design-brief-*.md files if present
+    8. Delete temporary review-*.md, design-brief-*.md, and retry-diff-*.md files if present
     9. Stage code + progress.txt + prd.json and create ONE commit
 
     ## Commit message rules (STRICT)
@@ -186,8 +186,47 @@ Agent tool:
 
 ### 4. Handle Review Result
 
-- **APPROVED**: Proceed to finalize
-- **NEEDS_CHANGES**: Re-run Phase 2 with review feedback appended to prompt (max 2 retries)
+- **APPROVED**: Proceed to finalize.
+- **NEEDS_CHANGES**: Re-run Phase 2 with **both** the review feedback AND the rejected diff (max 2 retries). Without the prior diff the retry agent re-derives its previous attempt from scratch and tends to reproduce the same class of mistake.
+
+**Before spawning the retry agent, capture the rejected attempt as a diff file:**
+
+```bash
+# Phase 2 produced one commit at HEAD. Snapshot it so the retry implementer
+# can see what was tried without having to mentally reverse-engineer it.
+git show HEAD > retry-diff-[STORY_ID].md
+```
+
+Leave the rejected commit in place. The retry implementer will build on top of it and then **amend** the commit so the story still lands as a single commit.
+
+**Retry prompt additions** (append to the normal Phase 2 implementer prompt):
+
+```
+## Retry context (attempt [N+1] of 3)
+
+The previous attempt landed as commit HEAD and was reviewed and REJECTED.
+Read both files before coding:
+
+1. `review-[STORY_ID].md` — the reviewer's findings. Every NEEDS_CHANGES item
+   must be addressed.
+2. `retry-diff-[STORY_ID].md` — the rejected diff. Use it to understand what
+   the prior attempt tried so you don't repeat the same mistakes. Keep the
+   parts the reviewer did NOT flag.
+
+## Retry workflow
+1. Read both files above.
+2. Make fixes in the working tree (edits, new tests, etc.) — the rejected
+   commit is already applied, so you're editing on top of it.
+3. Run quality checks: typecheck, lint, tests.
+4. Delete `retry-diff-[STORY_ID].md`, `review-[STORY_ID].md`, and any
+   `design-brief-*.md` before staging.
+5. Stage your fixes alongside the existing story changes.
+6. Amend the existing commit: `git commit --amend --no-edit` (or edit the
+   subject only if the story scope genuinely shifted). This keeps the story
+   at ONE commit — never create a separate `fix review feedback` commit.
+```
+
+After 2 failed review cycles (3 total implement attempts), stop and report the blocker to the orchestrator. Do not loop indefinitely.
 
 ### 5. Finalize
 
@@ -196,7 +235,7 @@ Agent tool:
 # Set passes: true for this story
 
 # Clean up temporary files
-rm -f design-brief-[STORY_ID].md review-[STORY_ID].md
+rm -f design-brief-[STORY_ID].md design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
 
 # Update progress.txt with learnings
 ```
@@ -235,7 +274,8 @@ rm -f design-brief-[STORY_ID].md review-[STORY_ID].md
 - Run design phase BEFORE implementation for frontend/fullstack
 - Always run review phase
 - Pass design briefs to implementation agents
-- Pass review feedback on retries
+- Pass review feedback AND the rejected diff (`retry-diff-[STORY_ID].md`) on retries
+- Amend the story commit on retry — one commit per story, even after review cycles
 - Clean up temporary files after success
 - Document learnings in progress.txt
 
@@ -243,8 +283,10 @@ rm -f design-brief-[STORY_ID].md review-[STORY_ID].md
 - Implement directly without spawning the team (use agents)
 - Skip the review phase
 - Retry more than 2 times on review rejection
+- Retry an implementer with only the review feedback — always include the prior diff too
+- Create a second commit to address review feedback (amend instead)
 - Spawn design agents for backend/infra/data stories
-- Leave design-brief-*.md or review-*.md files after completion
+- Leave design-brief-*.md, review-*.md, or retry-diff-*.md files after completion
 
 ## Standalone Mode
 
