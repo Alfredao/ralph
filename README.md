@@ -201,6 +201,7 @@ The hook re-queries `prd.json` every iteration, so a falsely asserted `<promise>
 | **cancel-ralph** | `/cancel-ralph` | Stop an active ralph-loop (use `--remove-hook` to also unregister the hook) |
 | **ralph-worker** | `/ralph-worker` | Single-story team lead (spawns design/implement/review agents) |
 | **ralph-validate** | `/ralph-validate` | Static linter for prd.json (structure, required fields, depends_on cycles) |
+| **ralph-review-prd** | `/ralph-review-prd` | AI architectural pre-flight on the whole PRD — sizing, ordering, missing stories, risks |
 | **ralph-status** | `/ralph-status` | Read-only status snapshot (counts, next runnable, blockers, loop state) |
 
 ## Model Selection
