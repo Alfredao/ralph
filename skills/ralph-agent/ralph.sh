@@ -140,54 +140,39 @@ count_stories() {
 }
 
 # The worker prompt sent to each Claude session
+# Delegates the full team-aware workflow to the ralph-worker skill so all three
+# execution modes (bash loop, /ralph-agent, /ralph-loop) share the same behavior.
 generate_worker_prompt() {
     cat << 'PROMPT'
-You are a Ralph Worker. Implement ONE user story from prd.json with fresh context.
+You are a Ralph iteration. Implement ONE user story from prd.json with fresh context.
 
-## Workflow
+## Step 1 — Invoke the ralph-worker skill
 
-1. **Read context files:**
-   - `prd.json` - find the highest-priority story where `passes: false`
-   - `progress.txt` - check Codebase Patterns and learnings from previous iterations
-   - `AGENTS.md` - if it exists, read module-specific patterns
+Invoke the `ralph-worker` skill immediately. It owns the full workflow:
+- Picks the highest-priority incomplete story from prd.json
+- Reads `type`, `team`, and `models` fields
+- Runs the design → implement → review phases with the right specialists
+- Handles review retries (max 2)
+- Updates progress.txt and sets `passes: true` on success
+- Creates ONE commit bundling code + progress.txt + prd.json
 
-2. **Implement the story:**
-   - Make minimal, focused changes
-   - Follow existing code patterns
-   - ONLY implement what's needed for acceptance criteria
+Do NOT implement the story yourself. Do NOT use a flat single-agent workflow.
+The skill is the single source of truth for worker behavior across all Ralph modes.
 
-3. **Run quality checks:**
-   - Typecheck (npm run typecheck or equivalent)
-   - Lint (npm run lint or equivalent)
-   - Tests (npm test or equivalent)
-   - All must pass before proceeding
+## Step 2 — Signal completion to the loop
 
-4. **Update progress.txt:**
-   - Append implementation details
-   - Add "Learnings for future iterations" section
-   - Update Codebase Patterns if you discovered reusable patterns
+After the skill finishes, check prd.json:
+- If ALL stories have `passes: true`, output exactly: <promise>COMPLETE</promise>
+- Otherwise, print a one-line summary of what was implemented and exit.
 
-5. **Commit changes:**
-   ```
-   git add -A
-   git commit -m "[STORY_ID]: [brief description]"
-   ```
+## Commit message rules (STRICT — enforced by the skill, restated here)
+- Format: `feat: <imperative>` or `fix: <imperative>` — subject only, no body
+- NO story numbers (never `feat: US-011 ...`, never `feat(US-011): ...`)
+- NO parenthetical scope prefixes (never `feat(api): ...`)
+- ONE commit bundling code + progress.txt + prd.json — never a separate `chore:` commit
+- No Claude as author/co-author
 
-6. **Update prd.json:**
-   - Set `passes: true` for your completed story
-   - Add notes if helpful
-
-7. **Check completion:**
-   - If ALL stories have `passes: true`, output: <promise>COMPLETE</promise>
-   - Otherwise, just report what you implemented
-
-## Rules
-- Implement exactly ONE story per session
-- All quality checks must pass
-- Document learnings in progress.txt
-- Don't skip steps
-
-Start by reading prd.json and progress.txt, then implement the next incomplete story.
+Begin by invoking the ralph-worker skill.
 PROMPT
 }
 
