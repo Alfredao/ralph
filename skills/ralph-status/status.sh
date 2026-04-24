@@ -10,6 +10,7 @@ set -o pipefail
 PRD_FILE="${1:-prd.json}"
 BLOCKER_FILE=".ralph-blocker.md"
 LOOP_STATE=".claude/ralph-loop.local.md"
+METRICS_FILE=".ralph-metrics.json"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -101,6 +102,40 @@ if [ -f "$BLOCKER_FILE" ]; then
     echo ""
     echo -e "${RED}⛔ Blocker active${NC}: ${BLOCKER_STORY:-unknown} (since ${BLOCKER_AT:-unknown})"
     echo -e "   Read $BLOCKER_FILE for the review verdict and unblock options."
+fi
+
+# --- metrics summary ----------------------------------------------------------
+
+if [ -f "$METRICS_FILE" ] && command -v jq &> /dev/null; then
+    METRICS_COUNT=$(jq '.stories | length' "$METRICS_FILE" 2>/dev/null || echo 0)
+    if [ "$METRICS_COUNT" -gt 0 ]; then
+        echo ""
+        echo -e "${BLUE}Metrics${NC} ($METRICS_COUNT stories recorded)"
+        SUMMARY=$(jq -r '
+            (.stories | to_entries) as $entries
+            | ($entries | map(.value.review_cycles) | add / length) as $avg_cycles
+            | ($entries | map(.value.lines_added) | add) as $total_added
+            | ($entries | map(.value.lines_removed) | add) as $total_removed
+            | ($entries | map(.value.model_used_implement) | group_by(.)
+                | map({k: .[0], v: length}) | sort_by(.v) | reverse | .[0].k) as $top_model
+            | "  Avg review cycles: \($avg_cycles | (.*10 | round)/10)\n  Lines changed: +\($total_added) / -\($total_removed)\n  Most-used implement model: \($top_model)"
+        ' "$METRICS_FILE" 2>/dev/null)
+        echo "$SUMMARY"
+
+        # Flag painful stories (cycles >= 2)
+        PAINFUL=$(jq -r '
+            .stories
+            | to_entries
+            | map(select(.value.review_cycles >= 2))
+            | .[]
+            | "  \(.key): \(.value.review_cycles) cycles on \(.value.model_used_implement)"
+        ' "$METRICS_FILE" 2>/dev/null)
+        if [ -n "$PAINFUL" ]; then
+            echo ""
+            echo -e "  ${YELLOW}Needed retries:${NC}"
+            echo "$PAINFUL"
+        fi
+    fi
 fi
 
 # --- loop state ---------------------------------------------------------------

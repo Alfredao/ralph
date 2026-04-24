@@ -160,6 +160,7 @@ Agent tool:
         fragile `git diff HEAD~1`, which would show the wrong thing if anything
         else landed (a concurrent worktree, a retry amend that half-failed, etc.).
 
+
     ## Commit message rules (STRICT)
     - Format: `feat: <imperative>` or `fix: <imperative>` — subject only, no body
     - NO story numbers (never `feat: US-011 ...`, never `feat(US-011): ...`)
@@ -335,6 +336,15 @@ After writing `.ralph-blocker.md`, report back to the orchestrator with the bloc
 
 # Clean up temporary files
 rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md .ralph-commit-[STORY_ID]
+
+# Record per-story metrics (no-op token cost; updates .ralph-metrics.json).
+# Not committed to git by default — this is local analytics. Add .ralph-metrics.json
+# to .gitignore if you don't want it surface in git status.
+bash ~/.claude/skills/ralph-worker/update-metrics.sh \
+  "[STORY_ID]" \
+  "[REVIEW_CYCLES: 1, 2, or 3]" \
+  "[MODEL_IMPLEMENT: sonnet/opus/haiku, final attempt's model]" \
+  "$(cat .ralph-commit-[STORY_ID] 2>/dev/null || git rev-parse HEAD)" 2>&1 || true
 
 # Update progress.txt with learnings
 ```
