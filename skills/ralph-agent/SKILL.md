@@ -30,16 +30,20 @@ All three modes invoke `ralph-worker` for per-story work. Worker logic lives in 
 
 Repeat until all stories have `passes: true` (or a blocker is hit):
 
-1. Read `prd.json`. If every story passes → report completion and exit.
-2. Invoke the `ralph-worker` skill.
+1. Check for `.ralph-blocker.md`. If present:
+   - If the blocker's `story_id` now shows `passes: true` in `prd.json` → delete the blocker file and continue (the user resolved it manually).
+   - Otherwise → stop and report. Tell the user to read `.ralph-blocker.md` and resolve it (edit the story, split it, fix manually, or skip).
+2. Read `prd.json`. If every story passes → report completion and exit.
+3. Invoke the `ralph-worker` skill.
    - The worker self-selects the highest-priority incomplete story.
    - It reads `type`, `team`, and `models` fields.
    - It runs design → implement → review phases with the right specialists.
-   - It handles review retries (max 2).
+   - It handles review retries (max 2) with model escalation to `opus` on the last retry.
    - It updates `progress.txt` + `prd.json` and creates ONE commit.
-3. After the worker returns, re-read `prd.json`:
+   - On retry cap: it writes `.ralph-blocker.md` instead of marking the story passed.
+4. After the worker returns, re-read `prd.json`:
    - If the worker's story is now `passes: true` → continue loop.
-   - If it's still `passes: false` after 2 review cycles → stop and report the blocker.
+   - If `.ralph-blocker.md` was written → stop, surface the blocker, do not re-pick the same story.
 
 ### Step 3 — Report completion
 

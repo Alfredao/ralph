@@ -50,6 +50,33 @@ if [[ ! -f "$PRD_FILE" ]]; then
   exit 0
 fi
 
+# --- blocker state check ------------------------------------------------------
+#
+# If the worker wrote `.ralph-blocker.md` (retry cap reached on some story),
+# halt the loop so the user can intervene. Auto-clean if the blocker's story
+# is now passes: true — the user resolved it manually.
+
+BLOCKER_FILE=".ralph-blocker.md"
+if [[ -f "$BLOCKER_FILE" ]]; then
+  BLOCKER_STORY=$(sed -n 's/^story_id: *//p' "$BLOCKER_FILE" | head -1 | tr -d '[:space:]')
+  if [[ -n "$BLOCKER_STORY" ]]; then
+    BLOCKER_PASSES=$(jq -r --arg id "$BLOCKER_STORY" \
+      '.stories[] | select(.id == $id) | .passes' "$PRD_FILE" 2>/dev/null)
+    if [[ "$BLOCKER_PASSES" == "true" ]]; then
+      echo "✅ Ralph loop: blocker for $BLOCKER_STORY resolved (passes: true). Removing $BLOCKER_FILE and continuing." >&2
+      rm -f "$BLOCKER_FILE"
+    else
+      echo "🛑 Ralph loop: blocked on ${BLOCKER_STORY:-unknown} — see $BLOCKER_FILE for review verdict and unblock instructions. Stopping." >&2
+      rm "$STATE_FILE"
+      exit 0
+    fi
+  else
+    echo "🛑 Ralph loop: $BLOCKER_FILE exists (story_id unreadable). Inspect it and delete when resolved. Stopping." >&2
+    rm "$STATE_FILE"
+    exit 0
+  fi
+fi
+
 # --- check completion promise in last assistant message -----------------------
 
 TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path // empty')

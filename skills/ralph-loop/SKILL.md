@@ -74,8 +74,9 @@ The hook (`stop-hook.sh`) on every Stop event:
 2. State file corrupted → delete it, exit 0.
 3. `iteration >= max_iterations` (when max > 0) → cleanup, exit 0.
 4. `prd.json` missing → cleanup, warn, exit 0.
-5. Last assistant message contains `<promise>RALPH-COMPLETE</promise>` AND `prd.json` confirms all stories pass → cleanup, exit 0.
-6. Find next story with `passes: false` (sorted by `priority`):
+5. `.ralph-blocker.md` exists → if the referenced story is now `passes: true`, remove the blocker and continue; otherwise cleanup, warn, exit 0.
+6. Last assistant message contains `<promise>RALPH-COMPLETE</promise>` AND `prd.json` confirms all stories pass → cleanup, exit 0.
+7. Find next runnable story (`passes: false` and all `depends_on` satisfied, sorted by `priority`):
    - None → cleanup, exit 0.
    - Found → build worker prompt, increment iteration, emit `{"decision": "block", "reason": "<prompt>"}`.
 

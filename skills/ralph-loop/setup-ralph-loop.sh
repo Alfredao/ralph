@@ -169,6 +169,15 @@ NEXT_STORY=$(jq -r '
   | if . == null then "(none — all stories already pass or deps blocked)" else "\(.id): \(.title)" end
 ' "$PRD_FILE" 2>/dev/null || echo "(none — all stories already pass)")
 
+BLOCKER_WARNING=""
+if [[ -f ".ralph-blocker.md" ]]; then
+  BLOCKER_STORY=$(sed -n 's/^story_id: *//p' ".ralph-blocker.md" | head -1 | tr -d '[:space:]')
+  BLOCKER_WARNING="
+⚠️  Blocker present: .ralph-blocker.md (story ${BLOCKER_STORY:-unknown})
+    The Stop hook will halt on the first iteration until you resolve this.
+    See .ralph-blocker.md for the review verdict and unblock instructions."
+fi
+
 cat <<EOF
 🔄 Ralph loop activated for this project.
 
@@ -178,7 +187,7 @@ Settings:      $SETTINGS_FILE
 PRD file:      $PRD_FILE
 Stories:       $DONE / $TOTAL passing
 Next story:    $NEXT_STORY
-Max iterations: $([ $MAX_ITERATIONS -gt 0 ] && echo $MAX_ITERATIONS || echo "unlimited")
+Max iterations: $([ $MAX_ITERATIONS -gt 0 ] && echo $MAX_ITERATIONS || echo "unlimited")$BLOCKER_WARNING
 
 The Stop hook is now active. When you finish your turn, the hook will
 pick the next incomplete story and re-prompt you to handle it via the

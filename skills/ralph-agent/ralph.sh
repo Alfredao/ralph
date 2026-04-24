@@ -17,6 +17,7 @@ COMPLETION_SIGNAL="<promise>COMPLETE</promise>"
 PRD_FILE="prd.json"
 PROGRESS_FILE="progress.txt"
 ARCHIVE_DIR="archive"
+BLOCKER_FILE=".ralph-blocker.md"
 
 # Colors for output
 RED='\033[0;31m'
@@ -150,6 +151,43 @@ no_runnable_story() {
     [ "$result" = "none" ]
 }
 
+# Blocker handler. Returns 0 if no action needed (no blocker, or auto-cleaned),
+# returns 1 if the loop must halt (unresolved blocker).
+#
+# Auto-clean: if the blocker references a story that is now passes: true in
+# prd.json, the user resolved it manually — delete the blocker and proceed.
+# Otherwise halt with instructions to read the file.
+check_blocker() {
+    if [ ! -f "$BLOCKER_FILE" ]; then
+        return 0
+    fi
+
+    local blocker_story_id
+    blocker_story_id=$(sed -n 's/^story_id: *//p' "$BLOCKER_FILE" | head -1 | tr -d '[:space:]')
+
+    if [ -n "$blocker_story_id" ]; then
+        local story_passes
+        story_passes=$(jq -r --arg id "$blocker_story_id" \
+            '.stories[] | select(.id == $id) | .passes' "$PRD_FILE" 2>/dev/null)
+        if [ "$story_passes" = "true" ]; then
+            log_info "Blocker file references $blocker_story_id, which is now passes: true."
+            log_info "Auto-cleaning $BLOCKER_FILE and continuing."
+            rm -f "$BLOCKER_FILE"
+            return 0
+        fi
+    fi
+
+    log_error "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log_error "Ralph is blocked on story: ${blocker_story_id:-unknown}"
+    log_error "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log_error "See $BLOCKER_FILE for the full review verdict, rejected diff,"
+    log_error "and instructions on how to unblock. Resolve it (edit the story,"
+    log_error "split it, fix manually, or skip), then delete $BLOCKER_FILE"
+    log_error "and re-run. The loop will auto-clean the blocker if the story"
+    log_error "is already marked passes: true."
+    return 1
+}
+
 # Count stories
 count_stories() {
     local total complete
@@ -205,6 +243,13 @@ main() {
     archive_if_needed
     init_progress
 
+    # Preflight blocker check. If an unresolved blocker exists, halt before
+    # spawning any iteration — otherwise we'd waste tokens on work the user
+    # has not yet reviewed.
+    if ! check_blocker; then
+        exit 1
+    fi
+
     # Check initial state
     if all_stories_complete; then
         log_success "All stories already complete!"
@@ -218,6 +263,12 @@ main() {
 
     # Main iteration loop
     for ((i=1; i<=MAX_ITERATIONS; i++)); do
+        # The worker may have written a blocker in the previous iteration.
+        # Re-check here (skipped on iteration 1 — preflight already ran).
+        if [ "$i" -gt 1 ] && ! check_blocker; then
+            exit 1
+        fi
+
         # Dependency deadlock check
         if no_runnable_story && ! all_stories_complete; then
             log_error "Incomplete stories remain but none are runnable."

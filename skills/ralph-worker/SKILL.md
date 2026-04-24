@@ -249,7 +249,55 @@ Read both files before coding:
    at ONE commit — never create a separate `fix review feedback` commit.
 ```
 
-After 2 failed review cycles (3 total implement attempts), stop and report the blocker to the orchestrator. Do not loop indefinitely.
+After 2 failed review cycles (3 total implement attempts), stop and write a **blocker state file**. Do not loop indefinitely, and do not spawn a fourth attempt.
+
+### 4b. Write the blocker state file
+
+When the retry cap is reached, write `.ralph-blocker.md` in the working directory. This file is the handoff back to the human — a single place that says what failed and how to unblock it. The outer loop entry points (`ralph.sh`, `/ralph-loop`'s stop hook, `/ralph-agent`) all detect this file on startup and refuse to keep iterating until it's resolved.
+
+**Do NOT delete `review-[STORY_ID].md` or `retry-diff-[STORY_ID].md` in the blocker case.** The user needs them for intervention.
+
+**Format (write verbatim, substituting bracketed fields):**
+
+~~~markdown
+---
+story_id: [STORY_ID]
+story_title: [TITLE]
+blocked_at: [ISO 8601 timestamp]
+attempts: 3
+last_model: [model used on retry #2]
+---
+
+# Blocker: [STORY_ID] — [TITLE]
+
+Ralph attempted this story 3 times (initial + 2 retries) and the reviewer rejected each one. The loop has stopped so you can intervene.
+
+## Last review verdict
+
+[paste the full contents of review-[STORY_ID].md here, verbatim, inside a fenced block]
+
+## Rejected diff
+
+[paste the full contents of retry-diff-[STORY_ID].md here, verbatim, inside a fenced block]
+
+## How to unblock
+
+Pick one, then delete this file (`.ralph-blocker.md`) and re-run the loop:
+
+1. **Rewrite the story.** Edit `prd.json` — change the acceptance criteria, description, or team for [STORY_ID] to make the intent clearer. Then delete this file and re-run.
+2. **Split the story.** If it's too big, break it into [STORY_ID]a / [STORY_ID]b with proper `depends_on` arrays. Delete this file, run `/ralph-validate` to confirm structure, re-run.
+3. **Fix manually.** Implement the story yourself in your editor, run your own quality checks, set `passes: true` for [STORY_ID] in `prd.json`, and commit. The loop will auto-clean this file on the next run once the story shows `passes: true`.
+4. **Skip.** Set `passes: true` in `prd.json` without implementing. Delete this file. The loop moves on; nothing else enforces that the story is actually done.
+
+## Reference files left on disk
+- `review-[STORY_ID].md` — the last reviewer's full verdict
+- `retry-diff-[STORY_ID].md` — the last rejected diff
+- Any `design-brief-[STORY_ID]-*.md` files from the design phase
+
+These are not deleted automatically so you can re-read them independently.
+~~~
+
+After writing `.ralph-blocker.md`, report back to the orchestrator with the blocker status (see section 6) and return. Do not mark the story `passes: true`. Do not attempt a fourth implementation.
 
 ### 5. Finalize
 
@@ -264,6 +312,8 @@ rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
 ```
 
 ### 6. Report Back
+
+On success:
 
 ```
 ## Story [ID] Complete
@@ -289,6 +339,19 @@ rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
 ### Success: true
 ```
 
+On blocker (retry cap reached):
+
+```
+## Story [ID] BLOCKED
+
+3 attempts, all rejected by review. Blocker state written to `.ralph-blocker.md`.
+The loop will halt until the blocker is resolved. See `.ralph-blocker.md` for
+details and intervention options.
+
+### Success: false
+### Blocker: true
+```
+
 ## Rules
 
 ### DO
@@ -302,6 +365,7 @@ rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
 - Amend the story commit on retry — one commit per story, even after review cycles
 - Clean up temporary files after success
 - Document learnings in progress.txt
+- Write `.ralph-blocker.md` and preserve review/retry-diff files when the retry cap is reached
 
 ### DON'T
 - Implement directly without spawning the team (use agents)
@@ -310,7 +374,9 @@ rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
 - Retry an implementer with only the review feedback — always include the prior diff too
 - Create a second commit to address review feedback (amend instead)
 - Spawn design agents for backend/infra/data stories
-- Leave design-brief-*.md, review-*.md, or retry-diff-*.md files after completion
+- Leave design-brief-*.md, review-*.md, or retry-diff-*.md files after a successful completion
+- Delete `review-[STORY_ID].md` or `retry-diff-[STORY_ID].md` when writing a blocker — the user needs them
+- Mark a story `passes: true` when writing a blocker — the whole point is that it did NOT pass
 
 ## Standalone Mode
 
