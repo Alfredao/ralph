@@ -19,6 +19,7 @@ Memory persists through files, not conversation context:
 - `retry-diff-US-XXX.md` — Temporary snapshot of a rejected implementation attempt, passed to the retry agent alongside the review feedback (cleaned up after approval)
 - `.ralph-commit-US-XXX` — Commit SHA of the story's implementation, handed to the reviewer so it can use `git show` instead of the fragile `git diff HEAD~1` (cleaned up after approval)
 - `.ralph-blocker.md` — Written when a story hits the retry cap (3 failed attempts). Contains the review verdict, the rejected diff, and instructions for unblocking. The loop refuses to iterate while this file exists; auto-cleaned when the referenced story is marked `passes: true`.
+- `archive/progress-<timestamp>.txt` — Older iteration logs. The worker auto-archives `progress.txt` when it exceeds 50 KB and keeps only the Codebase Patterns header plus the last 20 KB of iteration log. Archives are committed alongside the story so history is preserved in git.
 - `.claude/ralph-loop.local.md` — Loop state (only while `/ralph-loop` is active)
 - Git commit history
 

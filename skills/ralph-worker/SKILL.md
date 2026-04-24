@@ -146,10 +146,15 @@ Agent tool:
     4. Run quality checks: typecheck, lint, tests
     5. For UI: verify in browser
     6. Update progress.txt with learnings
-    7. Update prd.json — set this story's passes: true
-    8. Delete temporary review-*.md, design-brief-*.md, and retry-diff-*.md files if present
-    9. Stage code + progress.txt + prd.json and create ONE commit
-    10. Capture the story commit SHA for the reviewer:
+    7. Compact progress.txt if it's grown past the threshold — deterministic,
+       zero-token. Runs every iteration; no-op unless the file exceeds 50 KB:
+       `bash ~/.claude/skills/ralph-worker/compact-progress.sh progress.txt archive`
+       If it archived anything, stage both the slimmer `progress.txt` AND the new
+       file under `archive/` so the commit reflects the compacted state.
+    8. Update prd.json — set this story's passes: true
+    9. Delete temporary review-*.md, design-brief-*.md, and retry-diff-*.md files if present
+    10. Stage code + progress.txt + prd.json (+ any archived progress file) and create ONE commit
+    11. Capture the story commit SHA for the reviewer:
         `git rev-parse HEAD > .ralph-commit-[STORY_ID]`
         This handoff file lets the reviewer use `git show <sha>` instead of the
         fragile `git diff HEAD~1`, which would show the wrong thing if anything
