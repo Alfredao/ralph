@@ -149,6 +149,11 @@ Agent tool:
     7. Update prd.json — set this story's passes: true
     8. Delete temporary review-*.md, design-brief-*.md, and retry-diff-*.md files if present
     9. Stage code + progress.txt + prd.json and create ONE commit
+    10. Capture the story commit SHA for the reviewer:
+        `git rev-parse HEAD > .ralph-commit-[STORY_ID]`
+        This handoff file lets the reviewer use `git show <sha>` instead of the
+        fragile `git diff HEAD~1`, which would show the wrong thing if anything
+        else landed (a concurrent worktree, a retry amend that half-failed, etc.).
 
     ## Commit message rules (STRICT)
     - Format: `feat: <imperative>` or `fix: <imperative>` — subject only, no body
@@ -178,7 +183,12 @@ Agent tool:
     ## Review Steps
     1. Read `prd.json` for acceptance criteria
     2. Read EVERY `design-brief-[STORY_ID]-*.md` file (one per design agent)
-    3. Run `git diff HEAD~1` to see changes
+    3. Read the story commit SHA from `.ralph-commit-[STORY_ID]`.
+       Inspect the diff with: `git show $(cat .ralph-commit-[STORY_ID])`
+       (Do NOT use `git diff HEAD~1` — it can show the wrong diff if anything
+       else landed between implementation and review, e.g. a concurrent worktree
+       session, a retry amend that half-failed, or manual cleanup.)
+       Fallback if the handoff file is missing: use `git show HEAD`.
     4. Read modified files
     5. Run quality checks (typecheck, lint, tests)
 
@@ -215,9 +225,9 @@ Rationale: if retry #1 with the same model and full feedback still failed review
 **Before spawning the retry agent, capture the rejected attempt as a diff file:**
 
 ```bash
-# Phase 2 produced one commit at HEAD. Snapshot it so the retry implementer
-# can see what was tried without having to mentally reverse-engineer it.
-git show HEAD > retry-diff-[STORY_ID].md
+# Phase 2 produced one commit whose SHA is in .ralph-commit-[STORY_ID].
+# Snapshot the rejected diff for the retry implementer.
+git show "$(cat .ralph-commit-[STORY_ID])" > retry-diff-[STORY_ID].md
 ```
 
 Leave the rejected commit in place. The retry implementer will build on top of it and then **amend** the commit so the story still lands as a single commit.
@@ -247,6 +257,8 @@ Read both files before coding:
 6. Amend the existing commit: `git commit --amend --no-edit` (or edit the
    subject only if the story scope genuinely shifted). This keeps the story
    at ONE commit — never create a separate `fix review feedback` commit.
+7. Refresh the commit SHA handoff since amend rewrites the commit:
+   `git rev-parse HEAD > .ralph-commit-[STORY_ID]`
 ```
 
 After 2 failed review cycles (3 total implement attempts), stop and write a **blocker state file**. Do not loop indefinitely, and do not spawn a fourth attempt.
@@ -292,6 +304,7 @@ Pick one, then delete this file (`.ralph-blocker.md`) and re-run the loop:
 ## Reference files left on disk
 - `review-[STORY_ID].md` — the last reviewer's full verdict
 - `retry-diff-[STORY_ID].md` — the last rejected diff
+- `.ralph-commit-[STORY_ID]` — SHA of the last rejected commit (inspect with `git show $(cat .ralph-commit-[STORY_ID])`)
 - Any `design-brief-[STORY_ID]-*.md` files from the design phase
 
 These are not deleted automatically so you can re-read them independently.
@@ -306,7 +319,7 @@ After writing `.ralph-blocker.md`, report back to the orchestrator with the bloc
 # Set passes: true for this story
 
 # Clean up temporary files
-rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
+rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md .ralph-commit-[STORY_ID]
 
 # Update progress.txt with learnings
 ```
@@ -374,7 +387,8 @@ details and intervention options.
 - Retry an implementer with only the review feedback — always include the prior diff too
 - Create a second commit to address review feedback (amend instead)
 - Spawn design agents for backend/infra/data stories
-- Leave design-brief-*.md, review-*.md, or retry-diff-*.md files after a successful completion
+- Leave design-brief-*.md, review-*.md, retry-diff-*.md, or .ralph-commit-* files after a successful completion
+- Point the reviewer at `git diff HEAD~1` — always pass the SHA via `.ralph-commit-[STORY_ID]`
 - Delete `review-[STORY_ID].md` or `retry-diff-[STORY_ID].md` when writing a blocker — the user needs them
 - Mark a story `passes: true` when writing a blocker — the whole point is that it did NOT pass
 

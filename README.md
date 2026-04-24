@@ -17,6 +17,7 @@ Memory persists through files, not conversation context:
 - `design-brief-US-XXX-<role>.md` — Temporary design phase output, one file per design agent (e.g. `-ux-researcher.md`, `-ui-designer.md`). Cleaned up after approval.
 - `review-US-XXX.md` — Temporary review phase output (cleaned up after approval)
 - `retry-diff-US-XXX.md` — Temporary snapshot of a rejected implementation attempt, passed to the retry agent alongside the review feedback (cleaned up after approval)
+- `.ralph-commit-US-XXX` — Commit SHA of the story's implementation, handed to the reviewer so it can use `git show` instead of the fragile `git diff HEAD~1` (cleaned up after approval)
 - `.ralph-blocker.md` — Written when a story hits the retry cap (3 failed attempts). Contains the review verdict, the rejected diff, and instructions for unblocking. The loop refuses to iterate while this file exists; auto-cleaned when the referenced story is marked `passes: true`.
 - `.claude/ralph-loop.local.md` — Loop state (only while `/ralph-loop` is active)
 - Git commit history
