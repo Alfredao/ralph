@@ -120,7 +120,9 @@ Spawn implementation agents from `team.implement`:
 
 ```
 Agent tool:
-  model: [story.models.implement or "sonnet"]
+  # Attempts 1 and 2 use the configured model. Attempt 3 (second retry) escalates
+  # to "opus" — see the model escalation table in section 4 below.
+  model: [story.models.implement or "sonnet", or "opus" on retry #2]
   subagent_type: "Senior Developer"  # or appropriate type
   description: "Implement [STORY_ID]"
   prompt: |
@@ -199,6 +201,16 @@ Agent tool:
 
 - **APPROVED**: Proceed to finalize.
 - **NEEDS_CHANGES**: Re-run Phase 2 with **both** the review feedback AND the rejected diff (max 2 retries). Without the prior diff the retry agent re-derives its previous attempt from scratch and tends to reproduce the same class of mistake.
+
+**Model escalation across attempts:**
+
+| Attempt | Model for `team.implement` |
+|---------|----------------------------|
+| 1 (initial)  | `story.models.implement` (as configured — typically `sonnet`) |
+| 2 (retry #1) | Same as attempt 1 — give the original model a second shot with the review + prior diff in context |
+| 3 (retry #2, last) | **Escalate to `opus`** unless `story.models.implement` is already `opus`. Haiku → opus, sonnet → opus, opus → opus. |
+
+Rationale: if retry #1 with the same model and full feedback still failed review, the implementer likely needs more reasoning capacity. The last attempt before declaring a blocker is the right place to spend the extra tokens. Escalating earlier wastes money on cases where the original model would have passed on retry #1.
 
 **Before spawning the retry agent, capture the rejected attempt as a diff file:**
 
@@ -286,6 +298,7 @@ rm -f design-brief-[STORY_ID]-*.md review-[STORY_ID].md retry-diff-[STORY_ID].md
 - Always run review phase
 - Pass design briefs to implementation agents
 - Pass review feedback AND the rejected diff (`retry-diff-[STORY_ID].md`) on retries
+- Escalate the implement model to `opus` on the last retry (retry #2) unless it's already `opus`
 - Amend the story commit on retry — one commit per story, even after review cycles
 - Clean up temporary files after success
 - Document learnings in progress.txt
