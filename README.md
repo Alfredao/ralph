@@ -24,11 +24,19 @@ Each iteration starts with clean context, forcing proper documentation.
 
 ## Installation
 
-Copy the skills to your Claude Code skills directory:
+Copy the skills and the bundled subagents into your Claude Code config:
 
 ```bash
+# Skills (ralph-prd, ralph-agent, ralph-worker, ralph-loop, ralph-validate, ralph-convert, cancel-ralph)
 cp -r skills/* ~/.claude/skills/
+
+# Subagents Ralph spawns (Senior Developer, Backend Architect, UX Researcher, etc.)
+# The -n flag prevents overwriting agents you already have installed.
+mkdir -p ~/.claude/agents
+cp -rn .claude/agents/* ~/.claude/agents/
 ```
+
+The agents are a verbatim subset of [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) (MIT). See `.claude/agents/README.md` for the full list and refresh instructions.
 
 ### Prerequisites
 
