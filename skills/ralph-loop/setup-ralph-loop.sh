@@ -109,6 +109,10 @@ mkdir -p .claude
 # --- write state file ---------------------------------------------------------
 
 STATE_FILE=".claude/ralph-loop.local.md"
+INJECTED_FILE=".claude/ralph-loop.last-injected"
+
+# Fresh activation: drop any stale re-injection counter from a previous loop.
+rm -f "$INJECTED_FILE"
 cat > "$STATE_FILE" <<EOF
 ---
 active: true

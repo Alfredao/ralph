@@ -34,6 +34,7 @@ HELP_EOF
 done
 
 STATE_FILE=".claude/ralph-loop.local.md"
+INJECTED_FILE=".claude/ralph-loop.last-injected"
 SETTINGS_FILE=".claude/settings.local.json"
 
 CLEARED_STATE=0
@@ -41,6 +42,7 @@ if [[ -f "$STATE_FILE" ]]; then
   rm "$STATE_FILE"
   CLEARED_STATE=1
 fi
+rm -f "$INJECTED_FILE"
 
 CLEARED_HOOK=0
 if [[ $REMOVE_HOOK -eq 1 ]] && [[ -f "$SETTINGS_FILE" ]]; then

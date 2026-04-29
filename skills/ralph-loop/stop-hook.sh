@@ -12,7 +12,17 @@ set -euo pipefail
 HOOK_INPUT=$(cat)
 
 STATE_FILE=".claude/ralph-loop.local.md"
+INJECTED_FILE=".claude/ralph-loop.last-injected"
 PROMISE_TAG="RALPH-COMPLETE"
+
+# Re-injection threshold: warn loudly when the same story has been injected
+# this many times without progress. Indicates the user keeps interjecting and
+# the worker prompt never lands.
+REINJECT_WARN_THRESHOLD=3
+
+cleanup_state() {
+  rm -f "$STATE_FILE" "$INJECTED_FILE"
+}
 
 # No active loop: allow normal exit
 if [[ ! -f "$STATE_FILE" ]]; then
@@ -30,7 +40,7 @@ PRD_FILE="${PRD_FILE:-prd.json}"
 # Validate numeric fields
 if [[ ! "$ITERATION" =~ ^[0-9]+$ ]] || [[ ! "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
   echo "⚠️  Ralph loop: state file corrupted (iteration='$ITERATION' max='$MAX_ITERATIONS'). Stopping." >&2
-  rm "$STATE_FILE"
+  cleanup_state
   exit 0
 fi
 
@@ -38,7 +48,7 @@ fi
 
 if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
   echo "🛑 Ralph loop: max iterations ($MAX_ITERATIONS) reached. Stopping." >&2
-  rm "$STATE_FILE"
+  cleanup_state
   exit 0
 fi
 
@@ -46,7 +56,7 @@ fi
 
 if [[ ! -f "$PRD_FILE" ]]; then
   echo "⚠️  Ralph loop: $PRD_FILE not found. Run /ralph-prd first. Stopping." >&2
-  rm "$STATE_FILE"
+  cleanup_state
   exit 0
 fi
 
@@ -67,12 +77,12 @@ if [[ -f "$BLOCKER_FILE" ]]; then
       rm -f "$BLOCKER_FILE"
     else
       echo "🛑 Ralph loop: blocked on ${BLOCKER_STORY:-unknown} — see $BLOCKER_FILE for review verdict and unblock instructions. Stopping." >&2
-      rm "$STATE_FILE"
+      cleanup_state
       exit 0
     fi
   else
     echo "🛑 Ralph loop: $BLOCKER_FILE exists (story_id unreadable). Inspect it and delete when resolved. Stopping." >&2
-    rm "$STATE_FILE"
+    cleanup_state
     exit 0
   fi
 fi
@@ -117,7 +127,7 @@ if [[ -n "$LAST_OUTPUT" ]]; then
           fi
         fi
       fi
-      rm "$STATE_FILE"
+      cleanup_state
       exit 0
     fi
     echo "⚠️  Ralph loop: promise asserted but $REMAINING story(s) still incomplete. Continuing." >&2
@@ -152,7 +162,7 @@ if [[ "$STORY_JSON" == "null" ]] || [[ -z "$STORY_JSON" ]]; then
   else
     echo "🛑 Ralph loop: $INCOMPLETE incomplete story(s) but none runnable — dependency deadlock. Check depends_on in $PRD_FILE. Stopping." >&2
   fi
-  rm "$STATE_FILE"
+  cleanup_state
   exit 0
 fi
 
@@ -162,6 +172,39 @@ STORY_TYPE=$(echo "$STORY_JSON" | jq -r '.type // "backend"')
 
 TOTAL=$(jq '.stories | length' "$PRD_FILE")
 DONE=$(jq '[.stories[] | select(.passes == true)] | length' "$PRD_FILE")
+
+# --- re-injection tracking ----------------------------------------------------
+#
+# The Stop hook can have its decision-block prompt preempted by a user message
+# that arrives between iterations. When that happens, the worker prompt for
+# this story never lands and the same story stays passes:false. On the next
+# Stop event we'd inject the same prompt — that's already correct behaviour.
+#
+# What we add here: explicit tracking so we (a) log clearly that a re-injection
+# is happening, and (b) escalate the warning if it keeps happening for the
+# same story. INJECTED_FILE format: "STORY_ID COUNT" on a single line.
+
+LAST_INJECTED_ID=""
+LAST_INJECTED_COUNT=0
+if [[ -f "$INJECTED_FILE" ]]; then
+  read -r LAST_INJECTED_ID LAST_INJECTED_COUNT < "$INJECTED_FILE" || true
+  if [[ ! "$LAST_INJECTED_COUNT" =~ ^[0-9]+$ ]]; then
+    LAST_INJECTED_COUNT=0
+  fi
+fi
+
+REINJECT_NOTE=""
+if [[ "$LAST_INJECTED_ID" == "$STORY_ID" ]] && [[ $LAST_INJECTED_COUNT -ge 1 ]]; then
+  NEW_COUNT=$((LAST_INJECTED_COUNT + 1))
+  REINJECT_NOTE=" (re-injection #$NEW_COUNT)"
+  echo "🔁 Ralph loop: $STORY_ID still passes:false on Stop — previous prompt was preempted (likely by a user message). Re-injecting (attempt #$NEW_COUNT)." >&2
+  if [[ $NEW_COUNT -ge $REINJECT_WARN_THRESHOLD ]]; then
+    echo "⚠️  Ralph loop: $STORY_ID has been re-injected $NEW_COUNT times without progress. If you keep typing between iterations the worker prompt never lands. Stop interjecting OR run /cancel-ralph and switch to /ralph-agent." >&2
+  fi
+else
+  NEW_COUNT=1
+fi
+echo "$STORY_ID $NEW_COUNT" > "$INJECTED_FILE"
 
 # --- bump iteration counter atomically ----------------------------------------
 
@@ -197,7 +240,7 @@ You are inside a Ralph loop. Implement the next incomplete story from prd.json u
 - Stories: $DONE / $TOTAL passing
 EOF
 
-SYSTEM_MSG="🔄 Ralph iteration $NEXT_ITERATION → $STORY_ID: $STORY_TITLE ($DONE/$TOTAL done)"
+SYSTEM_MSG="🔄 Ralph iteration $NEXT_ITERATION → $STORY_ID: $STORY_TITLE ($DONE/$TOTAL done)$REINJECT_NOTE"
 
 # --- emit block decision ------------------------------------------------------
 

@@ -78,7 +78,16 @@ The hook (`stop-hook.sh`) on every Stop event:
 6. Last assistant message contains `<promise>RALPH-COMPLETE</promise>` AND `prd.json` confirms all stories pass → cleanup, exit 0.
 7. Find next runnable story (`passes: false` and all `depends_on` satisfied, sorted by `priority`):
    - None → cleanup, exit 0.
-   - Found → build worker prompt, increment iteration, emit `{"decision": "block", "reason": "<prompt>"}`.
+   - Found → record the story id in `.claude/ralph-loop.last-injected` (with a re-injection counter), build worker prompt, increment iteration, emit `{"decision": "block", "reason": "<prompt>"}`.
+
+## Re-injection robustness
+
+A `decision: block` prompt can be preempted when the user types a message between iterations — Claude Code processes the user's message instead of the injected worker prompt, and the story stays `passes: false`. To make this visible:
+
+- The hook tracks the last injected story id in `.claude/ralph-loop.last-injected` along with a counter.
+- On the next Stop event, if the same story is selected again, the hook logs `🔁 Ralph loop: re-injecting (attempt #N)` so it's clear the previous prompt didn't land.
+- After 3 re-injections of the same story without progress, the hook prints a louder warning suggesting the user stop interjecting or switch to `/ralph-agent` (which orchestrates everything in a single turn and is immune to user-message preemption).
+- The counter resets when the next iteration injects a different story, and the file is removed when the loop ends, is cancelled, or hits a blocker.
 
 ## Anti-lying guard
 
@@ -98,3 +107,10 @@ The hook enforces this — even if Claude emits the promise, the hook re-counts 
 - `stop-hook.sh` — the Stop hook script
 - `setup-ralph-loop.sh` — invoked by `/ralph-loop`
 - This skill markdown — invoked by `/ralph-loop`
+
+## Sidecar files written at runtime (in the project's `.claude/`)
+
+- `ralph-loop.local.md` — YAML state file (iteration, max_iterations, prd_file, started_at)
+- `ralph-loop.last-injected` — single line `STORY_ID COUNT`; powers the re-injection logging described above
+
+Both are removed by the hook on natural completion, by `/cancel-ralph`, and on any error path that tears down the loop.
